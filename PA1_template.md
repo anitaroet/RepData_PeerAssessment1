@@ -32,6 +32,7 @@ dat_day <- dat %>%
   group_by(date) %>%
   summarise(steps_day=sum(steps))
 
+
 g <- ggplot(dat_day, aes(x=date, y=steps_day))
 g+geom_col()+theme_bw()+labs(title="Total number of steps per day")
 ```
