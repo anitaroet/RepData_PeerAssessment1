@@ -8,18 +8,133 @@ output:
 
 ## Loading and preprocessing the data
 
+In this section I unzip the data from the repository, load the data into R and transform the date variable to date format.
+
+```{r lib, echo=FALSE, include=FALSE}
+
+library(ggplot2)
+library(tidyverse)
+library(lubridate)
+
+```
+
+```{r load, echo=TRUE}
+
+unzip("activity.zip")
+dat <- read.csv("activity.csv")
+
+dat <- dat %>%
+  mutate(date=as.Date(date))
+
+```
 
 
 ## What is mean total number of steps taken per day?
 
 
+```{r histogram, echo=TRUE}
+
+dat_day <- dat %>%
+  filter(!is.na(steps)) %>%
+  group_by(date) %>%
+  summarise(steps_day=sum(steps))
+
+g <- ggplot(dat_day, aes(x=date, y=steps_day))
+g+geom_col()+theme_bw()+labs(title="Total number of steps per day")
+
+
+```
+```{r mean, echo=TRUE}
+
+summary(dat_day)
+
+mean <- mean(dat_day$steps_day)
+median <- median(dat_day$steps_day)
+
+```
+
+* The mean total number of steps taken per day is `r mean`
+* The median total number of steps taken per day is `r median`
 
 ## What is the average daily activity pattern?
 
+```{r daily_average, echo=TRUE}
 
+dat_int <- dat %>%
+  filter(!is.na(steps)) %>%
+  group_by(interval) %>%
+  summarise(steps_int=mean(steps),
+            steps_med=median(steps))
+
+plot(dat_int$interval, dat_int$steps_int, type="l", xlab="5-min interval", ylab="Average number of steps", main="Average daily activity pattern")
+
+dat_int$interval[dat_int$interval==max(dat_int$steps_int)]
+
+```
 
 ## Imputing missing values
+
+### Total number of missing values
+
+```{r na, echo=TRUE}
+
+nas <- nrow(dat[is.na(dat$steps),])
+
+```
+Total number of rows with NAs is `r nas`.
+
+### Fill in missing values
+
+I use the median for the 5 minute interval to fill in missing values.
+
+```{r fill_na, echo=TRUE}
+
+dat_fill <- dat %>%
+  merge(dat_int, by="interval", all.x=TRUE) %>%
+  mutate(steps=ifelse(is.na(steps), steps_med, steps))
+
+```
+
+```{r histogram_updated, echo=TRUE}
+
+dat_day_upd <- dat_fill %>%
+  filter(!is.na(steps)) %>%
+  group_by(date) %>%
+  summarise(steps_day=sum(steps))
+
+g <- ggplot(dat_day_upd, aes(x=date, y=steps_day))
+g+geom_col()+theme_bw()+labs(title="Total number of steps per day")
+
+
+mean_upd <- mean(dat_day_upd$steps_day)
+median_upd <- median(dat_day$steps_day)
+
+
+```
+After inputing missing data with the median value, the updated mean and median are:
+
+* The mean total number of steps taken per day is `r mean_upd` instead of `r mean`.
+* The median total number of steps taken per day is `r median_upd` instead of `r median`.
+
+The mean is lower after inputing missing values, while the median stays the same. This is obvious as I used the median to fill inn, and the median is therefore unaffected. The median value is lower than the mean, and has therefore reduced the new mean value. 
+
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+
+```{r weekdays, echo=TRUE}
+
+weekdays_dat <- dat_fill %>%
+  mutate(wd=weekdays(date),
+         wd=ifelse(wd=="lørdag", "Weekend", ifelse(wd=="søndag", "Weekend", "Weekday"))) %>%
+  group_by(wd, interval) %>%
+  summarise(m=mean(steps))
+
+g_wd <- ggplot(weekdays_dat, aes(x=interval, y=m))
+g_wd+geom_line()+theme_bw()+labs(title="Total number of steps per day",y="Number of steps")+facet_wrap(~wd)
+
+```
+
+On weekdays, activity tends to start earlier in the day, but stay on a lower level throughout the day. In the weekends activity starts later in the morning, but is on a higher level mid-day. 
